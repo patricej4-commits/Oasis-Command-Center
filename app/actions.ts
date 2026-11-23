@@ -300,6 +300,23 @@ export async function saveReport(kind: 'morning' | 'eod', data: ReportData, publ
   })();
 }
 
+// ---------------------------------------------------------------- Sales import
+
+export async function saveSalesDays(
+  store: 'sugar' | 'jwo',
+  days: { sale_date: string; total_cents: number; orders: number; items: Record<string, number>; hours: Record<string, number> }[],
+  source: string,
+) {
+  return wrap(async () => {
+    const { supabase } = await ctx('patrice');
+    if (!days.length) throw new Error('No sales rows were found in that file.');
+    const rows = days.map((d) => ({ ...d, store, source, synced_at: new Date().toISOString() }));
+    const { error } = await supabase.from('sales_days').upsert(rows, { onConflict: 'store,sale_date' });
+    if (error) throw new Error(error.message);
+    return done();
+  })();
+}
+
 // ---------------------------------------------------------------- Meetings
 
 export async function addMeeting(input: { title: string; starts_local: string; location?: string }) {
