@@ -1,4 +1,4 @@
-import type { MetadataRoute } from 'next';
+﻿import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Private workspace for AJ and Patrice at Oasis Fresh Market',
     start_url: '/',
     display: 'standalone',
-    background_color: '#ffffff',
+    background_color: '#1E5B3A',
     theme_color: '#1E5B3A',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
