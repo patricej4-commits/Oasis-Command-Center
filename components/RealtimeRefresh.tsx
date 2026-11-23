@@ -13,7 +13,7 @@ export default function RealtimeRefresh({ tables, onEvent }: { tables: string[];
     const supabase = createClient();
     const channel = supabase.channel('oasis-' + tables.join('-'));
     tables.forEach((table) => {
-      channel.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
+      channel.on('postgres_changes', { event: '*', schema: 'public', table }, (payload: unknown) => {
         onEvent?.(table, payload);
         if (pending.current) clearTimeout(pending.current);
         pending.current = setTimeout(() => router.refresh(), 400);
