@@ -86,6 +86,20 @@ Any modern browser also works without installing: just open the link.
 
 "Normal daily email and WhatsApp checking and handling" is always added to the plan.
 
+## 8. Sales import
+
+Run `supabase/sales.sql` once in the Supabase SQL Editor (already done for the live project).
+
+**Square (Sugar Llamas), automatic**
+1. Go to https://developer.squareup.com/apps and sign in with the Square account. Click **Create an app** (any name, for example "Oasis Command Center").
+2. Open the app, switch the toggle at the top to **Production**, and copy the **Production Access token**.
+3. In Vercel: Settings > Environment Variables > Add. Type **Secret**, Key `SQUARE_ACCESS_TOKEN`, paste the token, Save. Then redeploy.
+4. If the Square account has more than one location, also add `SQUARE_LOCATION_ID` (Config) with the Sugar Llamas location ID.
+5. In Report Builder, click **Sync Square now**. Yesterday, week to date, best seller and busiest hour fill in automatically.
+
+**Amazon Just Walk Out (Western Supply), upload**
+Amazon does not offer a sales API for JWO stores. Download the daily Orders report (CSV) from the JWO merchant portal, then in Report Builder click **Upload JWO report (CSV)**, check the detected columns, and click **Save these totals**. For fully automatic data later, ask the Amazon JWO team about Intra-day reporting (CSV delivered to AWS S3).
+
 ## How things work
 
 - **Decisions**: Patrice adds items in Decisions (or from Team Check-ins). They appear at the top of AJ's view. When AJ taps Approve, Decline or Discuss, the item leaves his queue and shows up in Patrice's Inbox under "AJ responded".
