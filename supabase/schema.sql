@@ -184,6 +184,12 @@ create table if not exists checkin_notes (
 );
 
 -- ---------------------------------------------------------------
+-- API access (row level security below decides what each user sees)
+-- ---------------------------------------------------------------
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+
+-- ---------------------------------------------------------------
 -- Row level security
 -- ---------------------------------------------------------------
 do $$
