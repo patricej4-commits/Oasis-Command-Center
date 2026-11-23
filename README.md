@@ -1,0 +1,97 @@
+# Oasis Command Center
+
+A private, two-person workspace for Patrice Jackson (Executive Assistant / Operations Coordinator) and AJ (Aaron Johnson, CEO) at Oasis Fresh Market.
+
+- **AJ's view** (`/aj`): built for a phone. Decisions, Top 3, updates, plan, schedule, meetings, sales, end of day report, running list, and a "Give Patrice a Task" button.
+- **Patrice's view** (`/patrice`): built for a desktop. Inbox from AJ, Running List, Decisions and Follow-up tracker, Report Builder, Team Check-ins and Archive.
+
+Stack: Next.js 14 (App Router) + TypeScript + Tailwind, Supabase (Postgres, Auth, Storage, Realtime) and Vercel. The app is a PWA, so you can add it to the home screen on iPhone and Android.
+
+---
+
+## 1. Supabase setup (one time)
+
+1. Create a free project at https://supabase.com.
+2. Open **SQL Editor**, paste all of `supabase/schema.sql`, and click **Run**. This creates the tables, the security rules, the private `oasis-files` storage bucket, and realtime.
+3. Open **Authentication > URL Configuration**:
+   - **Site URL**: your Vercel URL, for example `https://oasis-command-center.vercel.app`
+   - **Redirect URLs**: add `https://YOUR-VERCEL-URL/auth/callback` and `http://localhost:3000/auth/callback`
+4. Open **Authentication > Email Templates > Magic Link** and add the 6-digit code so it works inside the home screen app on iPhone. Add this line to the template:
+   ```
+   <p>Or enter this code: <strong>{{ .Token }}</strong></p>
+   ```
+   On iPhone, a home screen app does not share sign-in with Safari, so AJ should type the code instead of tapping the link.
+5. Open **Project Settings > API** and copy the Project URL, the `anon` public key and the `service_role` key.
+
+## 2. Environment variables
+
+Copy `.env.example` to `.env.local` and fill it in:
+
+| Variable | Where it is used |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | App and Vercel |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | App and Vercel |
+| `SUPABASE_SERVICE_ROLE_KEY` | Seed script only. Never add it to Vercel or share it. |
+| `PATRICE_EMAIL` | Seed script: Patrice's sign-in email (admin) |
+| `AJ_EMAIL` | Seed script: AJ's sign-in email (executive) |
+
+## 3. Seed today's data and run locally
+
+```bash
+npm install
+npm run seed
+npm run dev
+```
+
+Open http://localhost:3000 and sign in with your email.
+
+The seed adds the two allowed users, the team (Michelle, Kamena, Leea, Larry), today's decisions for AJ, the Top 3, today's plan and the Nov 16 to 22 sales. You can run it again safely. It skips items that already exist.
+
+## 4. Deploy to Vercel from GitHub
+
+1. Push this folder to GitHub (repo `Oasis-Command-Center`).
+2. At https://vercel.com, click **Add New > Project** and import the GitHub repo.
+3. Add the environment variables `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, then click **Deploy**.
+4. Put the Vercel URL into Supabase (step 1.3).
+
+Every push to the `main` branch deploys automatically.
+
+## 5. Adding AJ (or changing emails)
+
+Only emails in the `allowed_users` table can sign in. Everyone else is blocked.
+
+- Fastest: set `AJ_EMAIL` in `.env.local` and run `npm run seed`.
+- Or in Supabase **Table Editor > allowed_users**, insert a row: `email` = AJ's email, `role` = `aj`, `display_name` = `Aaron Johnson`.
+
+Then send AJ the link. He enters his email, gets a code by email, and types it in.
+
+## 6. Install on phones
+
+- **iPhone (AJ)**: open the link in **Safari**, tap **Share**, then **Add to Home Screen**. Open the app from the home screen and sign in with the email code.
+- **Android (Patrice)**: open the link in **Chrome**, tap the menu, then **Install app** or **Add to Home screen**.
+
+## 7. Publishing the daily reports
+
+1. Go to **Report Builder** in Patrice's view.
+2. **Morning Report**: fill in Updates (person, text and status tag), Plan for Today (tick Top 3 on up to three items), AJ's schedule, anything you need from AJ, sales numbers and the sales report image, and meetings. The form starts with yesterday's updates and plan so you only edit what changed.
+3. Click **Save draft** at any time, then **Publish Morning Report**. AJ's view updates right away.
+4. At the end of the day, switch to **End of Day Report**, fill in updates and your plan for tomorrow, and click **Publish End of Day Report**. AJ can read it that evening.
+5. Every published report is kept in **Archive** by date.
+
+"Normal daily email and WhatsApp checking and handling" is always added to the plan.
+
+## How things work
+
+- **Decisions**: Patrice adds items in Decisions (or from Team Check-ins). They appear at the top of AJ's view. When AJ taps Approve, Decline or Discuss, the item leaves his queue and shows up in Patrice's Inbox under "AJ responded".
+- **Follow-up tracker**: "Copy nudge" copies a follow-up message and counts it. After 3 nudges in one day (Central Time) with no answer, the item shows **Call AJ**.
+- **Running List rule**: Done is not in the normal status list. Move finished work to Final Review, then use **Mark Done**. The database also enforces this.
+- **Tasks from AJ**: AJ's tasks arrive in Patrice's Inbox in real time with voice notes, photos, links and files. **Accept into Running List** turns a task into a running list item.
+- **Times**: everything is in Central Time (Tulsa). Patrice's header also shows Jamaica time.
+- **Files**: stored in a private bucket and shown with links that expire after one hour.
+
+## Phase 2 (not built yet)
+
+- Two-way sync with the monday.com Running List board (board 18432611876, status column `color_mm7gvym3`). The `tasks.monday_item_id` column is ready for this.
+- Email and WhatsApp notifications when AJ submits a task or acts on a decision.
+- Automatic sales import from Square and Amazon JWO exports.
+- Voice note transcription.
