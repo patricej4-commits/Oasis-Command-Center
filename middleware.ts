@@ -27,7 +27,8 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   // The Claude connector authenticates with its own secret in the URL.
-  if (path.startsWith('/api/mcp/')) return NextResponse.next();
+  // Connector discovery: answer plainly instead of redirecting to the sign-in page.
+  if (path.startsWith('/api/mcp') || path.startsWith('/.well-known/')) return NextResponse.next();
   const isPublic = path.startsWith('/login') || path.startsWith('/auth');
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
