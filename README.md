@@ -65,10 +65,16 @@ Only emails in the `allowed_users` table can sign in. Everyone else is blocked.
 
 Then send AJ the link. He enters his email, gets a code by email, and types it in.
 
-## 6. Install on phones
+## 6. Install on any device
 
-- **iPhone (AJ)**: open the link in **Safari**, tap **Share**, then **Add to Home Screen**. Open the app from the home screen and sign in with the email code.
-- **Android (Patrice)**: open the link in **Chrome**, tap the menu, then **Install app** or **Add to Home screen**.
+Live link: **https://oasis-command-center-mu.vercel.app**
+
+- **iPhone or iPad**: open the link in **Safari**, tap **Share**, then **Add to Home Screen**. Open the app from the home screen and sign in with the email code.
+- **Android**: open the link in **Chrome**, tap the menu, then **Install app** or **Add to Home screen**.
+- **Windows PC**: open the link in **Chrome** or **Edge**. Click the install icon at the right end of the address bar (or menu > **Install Oasis Command Center**). It opens in its own window and can be pinned to the taskbar.
+- **MacBook**: in **Chrome**, click the install icon in the address bar. In **Safari** (macOS Sonoma or later), choose **File > Add to Dock**.
+
+Any modern browser also works without installing: just open the link.
 
 ## 7. Publishing the daily reports
 
