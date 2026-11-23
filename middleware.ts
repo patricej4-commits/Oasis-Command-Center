@@ -26,6 +26,8 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  // The Claude connector authenticates with its own secret in the URL.
+  if (path.startsWith('/api/mcp/')) return NextResponse.next();
   const isPublic = path.startsWith('/login') || path.startsWith('/auth');
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

@@ -100,6 +100,21 @@ Run `supabase/sales.sql` once in the Supabase SQL Editor (already done for the l
 **Amazon Just Walk Out (Western Supply), upload**
 Amazon does not offer a sales API for JWO stores. Download the daily Orders report (CSV) from the JWO merchant portal, then in Report Builder click **Upload JWO report (CSV)**, check the detected columns, and click **Save these totals**. For fully automatic data later, ask the Amazon JWO team about Intra-day reporting (CSV delivered to AWS S3).
 
+## 9. Amy connector (Claude updates the app directly)
+
+The app includes a connector so a Claude chat (for example the "Amy" chat) can read the Command Center and update reports, decisions, Running List items and meetings. It acts as Patrice and follows the same rules (nothing goes to Done except through Final Review in the app).
+
+Setup (one time):
+1. Supabase: Project Settings > API Keys (Legacy) > copy the **service_role** key.
+2. Vercel: add Environment Variable, Type **Secret**, Key `SUPABASE_SERVICE_ROLE_KEY`, paste, Save.
+3. Make up a long secret phrase (at least 24 characters, letters and numbers only, no spaces). Vercel: add Secret `AMY_CONNECTOR_SECRET` with that phrase.
+4. Redeploy in Vercel.
+5. In Claude: Settings > Connectors > **Add custom connector**. Name: Oasis Command Center. URL: `https://oasis-command-center-mu.vercel.app/api/mcp/YOUR-SECRET-PHRASE`. Then enable it in the Amy chat.
+
+Treat the connector URL like a password. Anyone with it can change the app's data. To revoke access, change `AMY_CONNECTOR_SECRET` in Vercel and redeploy.
+
+Tools Amy gets: get_dashboard, save_report, add_decision, update_decision, save_task, accept_task_request, add_meeting.
+
 ## How things work
 
 - **Decisions**: Patrice adds items in Decisions (or from Team Check-ins). They appear at the top of AJ's view. When AJ taps Approve, Decline or Discuss, the item leaves his queue and shows up in Patrice's Inbox under "AJ responded".
