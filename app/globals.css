@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background: #f4f6f5;
+  color: #0f172a;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.section-title {
+  @apply flex items-center gap-2 rounded-t-2xl px-4 py-3 text-lg font-extrabold uppercase tracking-wide text-white;
+}
+.card {
+  @apply rounded-2xl bg-white shadow-sm;
+}
+.field {
+  @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-oasis focus:outline-none focus:ring-1 focus:ring-oasis;
+}
+.btn {
+  @apply inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-bold disabled:opacity-50;
+}
+.btn-primary {
+  @apply btn bg-oasis text-white hover:bg-oasis-dark;
+}
+.btn-ghost {
+  @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+}
+.pill {
+  @apply inline-block rounded-full px-2 py-0.5 text-xs font-bold;
+}
