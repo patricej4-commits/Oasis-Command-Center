@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { requireMe } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import RealtimeRefresh from '@/components/RealtimeRefresh';
@@ -21,9 +21,9 @@ export default async function PatriceLayout({ children }: { children: React.Reac
       <RealtimeRefresh tables={['task_requests', 'decisions', 'decision_replies', 'meetings']} />
       <header className="sticky top-0 z-30 bg-oasis text-white shadow">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
-          <Link href="/patrice" className="leading-tight">
-            <span className="block text-[10px] font-bold uppercase tracking-widest text-green-200">Oasis Fresh Market</span>
-            <span className="block text-lg font-extrabold">Command Center</span>
+          <Link href="/patrice" className="flex items-center gap-3 leading-tight">
+            <img src="/logo.png" alt="Oasis Fresh Market" className="h-10 w-auto" />
+            <span className="hidden text-lg font-extrabold sm:block">Command Center</span>
           </Link>
           <NavLinks badges={{ inbox: (newReqs ?? 0) + (unseen ?? 0), decisions: waiting ?? 0 }} />
           <div className="ml-auto flex items-center gap-4">
