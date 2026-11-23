@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 import { requireMe } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { loadAttachments, signPath } from '@/lib/files';
@@ -48,17 +48,17 @@ export default async function AjView() {
   return (
     <main className="mx-auto max-w-2xl space-y-4 p-3 pb-32" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
       <RealtimeRefresh tables={['decisions', 'reports', 'meetings', 'tasks', 'decision_replies']} />
-      <header className="flex items-center justify-between px-1">
-        <div>
-          <p className="text-xs font-black uppercase tracking-widest text-oasis">Oasis Command Center</p>
-          <p className="text-lg font-extrabold">{fmtLongToday()}</p>
+      <header className="flex items-center justify-between gap-3 rounded-2xl bg-oasis px-3 py-2 text-white">
+        <div className="flex items-center gap-3">
+          <img src="/logo.png" alt="Oasis Fresh Market" className="h-10 w-auto" />
+          <p className="text-sm font-extrabold leading-tight">{fmtLongToday()}</p>
         </div>
         <div className="flex items-center gap-2">
           {me.role === 'patrice' && (
-            <Link href="/patrice" className="btn-ghost">My view</Link>
+            <Link href="/patrice" className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-bold">My view</Link>
           )}
           <form action="/auth/signout" method="post">
-            <button className="text-xs font-semibold text-slate-500">Sign out</button>
+            <button className="text-xs font-semibold text-green-200">Sign out</button>
           </form>
         </div>
       </header>
