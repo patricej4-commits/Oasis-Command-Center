@@ -6,9 +6,42 @@ import { addMeeting, createDecision, deleteMeeting, saveReport, type NewAttachme
 import { DAILY_EMAIL_LINE, UPDATE_PEOPLE, UPDATE_STATUSES } from '@/lib/constants';
 import { CT, fmtDateTime, fmtLongToday } from '@/lib/time';
 import Uploader from '@/components/Uploader';
+import { JwoUpload, SquareSync } from './SalesImport';
 import type { Decision, Meeting, PlanItem, ReportData, SalesBlock, ScheduleItem, UpdateItem } from '@/lib/types';
 
 type Loaded = { data: ReportData; status: string | null; published_at: string | null };
+export type Synced = {
+  period: string;
+  sugar: SalesBlock | null;
+  jwo: SalesBlock | null;
+  sugarSynced: string | null;
+  jwoSynced: string | null;
+};
+
+/** Fills sales fields from synced data, keeping anything typed by hand. */
+function withSynced(data: ReportData, s: Synced, overwrite: boolean): ReportData {
+  const sales = data.sales ?? {};
+  const pick = (cur: SalesBlock | undefined, auto: SalesBlock | null): SalesBlock | undefined => {
+    if (!auto) return cur;
+    if (overwrite || !cur) return auto;
+    return {
+      yesterday: cur.yesterday || auto.yesterday,
+      wtd: cur.wtd || auto.wtd,
+      best: cur.best || auto.best,
+      busiest: cur.busiest || auto.busiest,
+    };
+  };
+  if (!s.sugar && !s.jwo) return data;
+  return {
+    ...data,
+    sales: {
+      ...sales,
+      period: overwrite || !sales.period ? s.period : sales.period,
+      sugar: pick(sales.sugar, s.sugar),
+      jwo: pick(sales.jwo, s.jwo),
+    },
+  };
+}
 
 export default function ReportBuilder({
   morning,
@@ -16,15 +49,20 @@ export default function ReportBuilder({
   salesImageUrl,
   meetings,
   openDecisions,
+  synced,
 }: {
   morning: Loaded;
   eod: Loaded;
   salesImageUrl: string | null;
   meetings: Meeting[];
   openDecisions: Decision[];
+  synced: Synced;
 }) {
   const [kind, setKind] = useState<'morning' | 'eod'>('morning');
-  const [m, setM] = useState<ReportData>(morning.data);
+  // Until the morning report is published, blank sales fields fill in from synced data.
+  const [m, setM] = useState<ReportData>(() =>
+    morning.status === 'published' ? morning.data : withSynced(morning.data, synced, false),
+  );
   const [e, setE] = useState<ReportData>(eod.data);
   const [msg, setMsg] = useState('');
   const [pending, start] = useTransition();
@@ -66,6 +104,15 @@ export default function ReportBuilder({
             <NeedsFromAj open={openDecisions} />
           </Box>
           <Box title="Sales" color="border-oasis">
+            <div className="mb-3 space-y-3 rounded-lg bg-green-50 p-3">
+              <SquareSync lastSynced={synced.sugarSynced} />
+              <JwoUpload lastSynced={synced.jwoSynced} />
+              {(synced.sugar || synced.jwo) && (
+                <button type="button" className="btn-ghost text-xs" onClick={() => setM(withSynced(m, synced, true))}>
+                  Fill sales from synced data
+                </button>
+              )}
+            </div>
             <SalesEditor data={m} setData={setM} imageUrl={salesImageUrl} />
           </Box>
           <Box title="Meetings (AJ marks if you are needed)" color="border-teal-700">
