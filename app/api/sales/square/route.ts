@@ -3,12 +3,14 @@ import { getMe } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { ctHour } from '@/lib/sales';
 import { ctToday } from '@/lib/time';
+import { emptyDay, type DayRollup } from '@/lib/csv';
+import { upsertSalesDays } from '@/lib/salesStore';
 
 const SQUARE = 'https://connect.squareup.com/v2';
 const VERSION = '2024-10-17';
 
 type Money = { amount?: number };
-type LineItem = { name?: string; variation_name?: string; quantity?: string };
+type LineItem = { name?: string; variation_name?: string; quantity?: string; total_money?: Money };
 type Order = { id: string; closed_at?: string; created_at?: string; total_money?: Money; line_items?: LineItem[] };
 
 async function sq(path: string, token: string, body?: unknown) {
@@ -69,30 +71,30 @@ export async function POST() {
     } while (cursor);
 
     // Roll up by Central Time day
-    const days = new Map<string, { total_cents: number; orders: number; items: Record<string, number>; hours: Record<string, number> }>();
+    const days = new Map<string, DayRollup>();
     for (const o of orders) {
       const when = new Date(o.closed_at || o.created_at || Date.now());
       const date = ctToday(when);
-      const d = days.get(date) ?? { total_cents: 0, orders: 0, items: {}, hours: {} };
-      d.total_cents += o.total_money?.amount ?? 0;
+      const d = days.get(date) ?? emptyDay(date);
+      const orderCents = o.total_money?.amount ?? 0;
+      d.total_cents += orderCents;
       d.orders += 1;
       const h = String(ctHour(when));
       d.hours[h] = (d.hours[h] || 0) + 1;
+      d.hour_revenue[h] = (d.hour_revenue[h] || 0) + orderCents;
       for (const li of o.line_items ?? []) {
         const name = [li.name, li.variation_name && li.variation_name !== 'Regular' ? li.variation_name : '']
           .filter(Boolean).join(' ') || 'Item';
-        d.items[name] = (d.items[name] || 0) + Number(li.quantity || 1);
+        const q = Number(li.quantity || 1);
+        d.units += q;
+        d.items[name] = (d.items[name] || 0) + q;
+        d.item_revenue[name] = (d.item_revenue[name] || 0) + (li.total_money?.amount ?? 0);
       }
       days.set(date, d);
     }
 
-    const rows = Array.from(days.entries()).map(([sale_date, d]) => ({
-      store: 'sugar', sale_date, ...d, source: 'square', synced_at: new Date().toISOString(),
-    }));
-    if (rows.length) {
-      const { error } = await createClient().from('sales_days').upsert(rows, { onConflict: 'store,sale_date' });
-      if (error) throw new Error(error.message);
-    }
+    const rows = Array.from(days.values());
+    if (rows.length) await upsertSalesDays(createClient(), 'sugar', rows, 'square');
     return NextResponse.json({
       ok: true,
       orders: orders.length,
