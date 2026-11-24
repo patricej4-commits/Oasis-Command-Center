@@ -64,12 +64,13 @@ const TOOLS: Tool[] = [
     inputSchema: { type: 'object', properties: {} },
     run: async (d) => {
       const today = ctToday();
-      const [decisions, requests, tasks, meetings, reports] = await Promise.all([
+      const [decisions, requests, tasks, meetings, reports, ajTodos] = await Promise.all([
         d.from('decisions').select('id,title,context,waiting_on,status,decided_at,created_at').order('created_at', { ascending: false }).limit(40),
         d.from('task_requests').select('id,title,details,links,priority,due_date,status,created_at').eq('status', 'new').order('created_at'),
         d.from('tasks').select('id,title,person_company,status,priority,next_action,waiting_on,next_follow_up,last_update').not('status', 'in', '("Done","Cancelled")').order('last_update', { ascending: false }),
         d.from('meetings').select('id,title,starts_at,location,patrice_needed').gte('starts_at', new Date(Date.now() - 3 * 3600e3).toISOString()).order('starts_at').limit(15),
         d.from('reports').select('kind,report_date,status,published_at,data').eq('report_date', today),
+        d.from('aj_todos').select('id,title,details,due_date,status,aj_comment,done_at').order('created_at', { ascending: false }).limit(30),
       ]);
       const ids = (must(decisions) as { id: string }[]).map((x) => x.id);
       const replies = ids.length
@@ -83,6 +84,7 @@ const TOOLS: Tool[] = [
         open_running_list: must(tasks),
         upcoming_meetings: must(meetings),
         todays_reports: must(reports),
+        tasks_for_aj: ajTodos.error ? [] : ajTodos.data,
       };
     },
   },
@@ -231,6 +233,17 @@ const TOOLS: Tool[] = [
       must(await d.from('task_requests').update({ status: 'accepted', task_id: task.id }).eq('id', str(a.id)));
       return { task_id: task.id };
     },
+  },
+  {
+    name: 'add_aj_task',
+    description: "Add a task to AJ's \"Your Tasks\" list (something AJ needs to do). AJ checks it off and can comment.",
+    inputSchema: {
+      type: 'object',
+      properties: { title: { type: 'string' }, details: { type: 'string' }, due_date: { type: 'string', description: 'YYYY-MM-DD' } },
+      required: ['title'],
+    },
+    run: async (d, a) =>
+      must(await d.from('aj_todos').insert({ title: str(a.title), details: opt(a.details), due_date: opt(a.due_date) }).select('id,title').single()),
   },
   {
     name: 'import_jwo_report',
