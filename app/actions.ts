@@ -301,6 +301,55 @@ export async function saveReport(kind: 'morning' | 'eod', data: ReportData, publ
   })();
 }
 
+// ---------------------------------------------------------------- Tasks for AJ
+
+export async function createAjTodo(input: { title: string; details?: string; due_date?: string }) {
+  return wrap(async () => {
+    const { supabase } = await ctx('patrice');
+    if (!input.title.trim()) throw new Error('Please add a title.');
+    const { error } = await supabase
+      .from('aj_todos')
+      .insert({ title: input.title.trim(), details: input.details?.trim() || null, due_date: input.due_date || null });
+    if (error) throw new Error(error.message);
+    return done();
+  })();
+}
+
+/** AJ marks a task done and/or leaves a comment. Patrice sees it in her Inbox. */
+export async function updateAjTodo(id: string, fields: { done?: boolean; comment?: string }) {
+  return wrap(async () => {
+    const { supabase, me } = await ctx();
+    const patch: Record<string, unknown> = {};
+    if (fields.done !== undefined) {
+      patch.status = fields.done ? 'done' : 'open';
+      patch.done_at = fields.done ? new Date().toISOString() : null;
+    }
+    if (fields.comment !== undefined) patch.aj_comment = fields.comment.trim() || null;
+    if (me.role === 'aj') patch.seen_by_patrice = false;
+    const { error } = await supabase.from('aj_todos').update(patch).eq('id', id);
+    if (error) throw new Error(error.message);
+    return done();
+  })();
+}
+
+export async function deleteAjTodo(id: string) {
+  return wrap(async () => {
+    const { supabase } = await ctx('patrice');
+    const { error } = await supabase.from('aj_todos').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+    return done();
+  })();
+}
+
+export async function markAjTodosSeen() {
+  return wrap(async () => {
+    const { supabase } = await ctx('patrice');
+    const { error } = await supabase.from('aj_todos').update({ seen_by_patrice: true }).eq('seen_by_patrice', false);
+    if (error) throw new Error(error.message);
+    return done();
+  })();
+}
+
 // ---------------------------------------------------------------- Sales import
 
 export async function saveSalesDays(
