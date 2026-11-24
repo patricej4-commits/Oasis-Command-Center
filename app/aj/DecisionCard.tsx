@@ -20,7 +20,6 @@ export default function DecisionCard({
 }) {
   const [comment, setComment] = useState('');
   const [atts, setAtts] = useState<NewAttachment[]>([]);
-  const [showReply, setShowReply] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState('');
   const [resetKey, setResetKey] = useState(0);
@@ -35,7 +34,6 @@ export default function DecisionCard({
         setComment('');
         setAtts([]);
         setResetKey((k) => k + 1);
-        setShowReply(false);
       }
     });
   }
@@ -75,25 +73,25 @@ export default function DecisionCard({
         <button disabled={pending} onClick={() => act('discuss')} className={`${big} bg-amber-500`}>Discuss</button>
       </div>
 
-      {!showReply ? (
-        <button onClick={() => setShowReply(true)} className="mt-2 w-full rounded-xl border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700">
-          Comment or voice note
-        </button>
-      ) : (
-        <div className="mt-3 space-y-2">
-          <textarea
-            className="w-full rounded-xl border border-slate-300 p-3 text-base"
-            rows={2}
-            placeholder="Add a comment (sent with your choice above, or on its own)"
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
+      <div className="mt-3 space-y-2">
+        <textarea
+          className="w-full rounded-xl border border-slate-300 bg-white p-3 text-base"
+          rows={2}
+          placeholder="Your comment or feedback (sent with Approve, Decline or Discuss, or on its own)"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+        />
+        <div className="flex flex-wrap items-center gap-2">
           <Uploader folder="replies" onChange={setAtts} compact allowFiles={false} resetKey={resetKey} />
-          <button disabled={pending} onClick={() => act('comment')} className="w-full rounded-xl bg-oasis py-3 font-bold text-white disabled:opacity-50">
+          <button
+            disabled={pending || (!comment.trim() && atts.length === 0)}
+            onClick={() => act('comment')}
+            className="ml-auto rounded-xl bg-oasis px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+          >
             Send comment only
           </button>
         </div>
-      )}
+      </div>
       {error && <p className="mt-2 text-sm font-semibold text-red-600">{error}</p>}
     </li>
   );
