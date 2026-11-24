@@ -3,16 +3,8 @@
 import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { saveSalesDays } from '@/app/actions';
-import { guessColumns, parseCsv, rollup, type ColumnGuess, type DayRollup } from '@/lib/csv';
+import { rollupFiles, type DayRollup } from '@/lib/csv';
 import { fmtDateTime } from '@/lib/time';
-
-const FIELDS: { key: keyof ColumnGuess; label: string; required?: boolean }[] = [
-  { key: 'date', label: 'Date / time', required: true },
-  { key: 'order', label: 'Order ID' },
-  { key: 'amount', label: 'Amount', required: true },
-  { key: 'item', label: 'Item name' },
-  { key: 'qty', label: 'Quantity' },
-];
 
 export function SquareSync({ lastSynced }: { lastSynced: string | null }) {
   const [msg, setMsg] = useState('');
@@ -46,38 +38,37 @@ export function SquareSync({ lastSynced }: { lastSynced: string | null }) {
   );
 }
 
+/** Upload one or more Amazon JWO daily files (Sales and Refund). Refunds are subtracted. */
 export function JwoUpload({ lastSynced }: { lastSynced: string | null }) {
   const input = useRef<HTMLInputElement>(null);
-  const [rows, setRows] = useState<string[][] | null>(null);
-  const [cols, setCols] = useState<ColumnGuess | null>(null);
-  const [fileName, setFileName] = useState('');
+  const [preview, setPreview] = useState<{ days: DayRollup[]; skipped: number; rows: number } | null>(null);
+  const [names, setNames] = useState<string[]>([]);
   const [msg, setMsg] = useState('');
   const [pending, start] = useTransition();
   const router = useRouter();
 
-  async function onFile(f: File | undefined) {
-    if (!f) return;
+  async function onFiles(list: FileList | null) {
+    if (!list || list.length === 0) return;
     setMsg('');
-    const text = await f.text();
-    const parsed = parseCsv(text);
-    if (parsed.length < 2) { setMsg('That file has no data rows.'); return; }
-    setFileName(f.name);
-    setRows(parsed);
-    setCols(guessColumns(parsed[0]));
+    const files = Array.from(list);
+    const texts = await Promise.all(files.map((f) => f.text()));
+    const result = rollupFiles(texts);
+    setNames(files.map((f) => f.name));
+    if (result.days.length === 0) {
+      setPreview(null);
+      setMsg('No sales rows with a readable date and amount were found in those files.');
+      return;
+    }
+    setPreview(result);
   }
-
-  const headers = rows?.[0] ?? [];
-  const preview: { days: DayRollup[]; skipped: number } | null =
-    rows && cols && cols.date >= 0 && cols.amount >= 0 ? rollup(rows.slice(1), cols) : null;
 
   function save() {
     if (!preview) return;
     start(async () => {
       const res = await saveSalesDays('jwo', preview.days, 'jwo-upload');
       if (res.ok) {
-        setMsg(`Saved ${preview.days.length} day(s) from ${fileName}.`);
-        setRows(null);
-        setCols(null);
+        setMsg(`Saved ${preview.days.length} day(s) from ${names.length} file(s).`);
+        setPreview(null);
         router.refresh();
       } else setMsg(res.error);
     });
@@ -86,41 +77,25 @@ export function JwoUpload({ lastSynced }: { lastSynced: string | null }) {
   return (
     <div className="space-y-2 text-xs">
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="btn-primary" onClick={() => input.current?.click()}>Upload JWO report (CSV)</button>
+        <button type="button" className="btn-primary" onClick={() => input.current?.click()}>Upload JWO reports (Sales and Refund CSV)</button>
         <span className="text-slate-500">{lastSynced ? `Last upload ${fmtDateTime(lastSynced)}` : 'No report uploaded yet'}</span>
-        <input ref={input} type="file" accept=".csv,text/csv" hidden onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ''; }} />
+        <input ref={input} type="file" accept=".csv,text/csv" multiple hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ''; }} />
       </div>
-      {rows && cols && (
+      <p className="text-slate-500">Tip: select the Sales file and the Refund file for the same day together.</p>
+      {preview && (
         <div className="space-y-2 rounded-lg border bg-white p-3">
-          <p className="font-bold">{fileName}: {rows.length - 1} rows. Check the columns below.</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {FIELDS.map((f) => (
-              <label key={f.key} className="block">
-                <span className="font-semibold text-slate-500">{f.label}{f.required ? ' *' : ''}</span>
-                <select className="field" value={cols[f.key]} onChange={(e) => setCols({ ...cols, [f.key]: Number(e.target.value) })}>
-                  <option value={-1}>(none)</option>
-                  {headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
-                </select>
-              </label>
+          <p className="font-bold">{names.join(', ')}: {preview.rows} lines read.</p>
+          <ul className="space-y-0.5">
+            {[...preview.days].sort((a, b) => a.sale_date.localeCompare(b.sale_date)).map((d) => (
+              <li key={d.sale_date}>
+                {d.sale_date}: ${(d.total_cents / 100).toFixed(2)} from {d.orders} orders (before tax, after refunds)
+              </li>
             ))}
-          </div>
-          {preview ? (
-            <>
-              <ul className="space-y-0.5">
-                {preview.days.sort((a, b) => a.sale_date.localeCompare(b.sale_date)).map((d) => (
-                  <li key={d.sale_date}>
-                    {d.sale_date}: ${(d.total_cents / 100).toFixed(2)} from {d.orders} orders
-                  </li>
-                ))}
-              </ul>
-              {preview.skipped > 0 && <p className="text-amber-700">{preview.skipped} rows had no readable date and were skipped.</p>}
-              <button type="button" disabled={pending} onClick={save} className="btn bg-oasis text-white">
-                {pending ? 'Saving...' : 'Save these totals'}
-              </button>
-            </>
-          ) : (
-            <p className="text-red-600">Pick the Date and Amount columns to continue.</p>
-          )}
+          </ul>
+          {preview.skipped > 0 && <p className="text-amber-700">{preview.skipped} lines could not be read and were skipped.</p>}
+          <button type="button" disabled={pending} onClick={save} className="btn bg-oasis text-white">
+            {pending ? 'Saving...' : 'Save these totals'}
+          </button>
         </div>
       )}
       {msg && <p className="font-semibold text-oasis">{msg}</p>}
