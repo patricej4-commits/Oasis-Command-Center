@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getMe } from '@/lib/auth';
 import { ctToday, ctLocalToIso } from '@/lib/time';
 import type { ReportData } from '@/lib/types';
+import { upsertSalesDays } from '@/lib/salesStore';
 
 export type NewAttachment = { path: string; file_name: string; mime: string; kind: 'voice' | 'image' | 'file' };
 type Result = { ok: true; id?: string } | { ok: false; error: string };
@@ -309,10 +310,7 @@ export async function saveSalesDays(
 ) {
   return wrap(async () => {
     const { supabase } = await ctx('patrice');
-    if (!days.length) throw new Error('No sales rows were found in that file.');
-    const rows = days.map((d) => ({ ...d, store, source, synced_at: new Date().toISOString() }));
-    const { error } = await supabase.from('sales_days').upsert(rows, { onConflict: 'store,sale_date' });
-    if (error) throw new Error(error.message);
+    await upsertSalesDays(supabase, store, days, source);
     return done();
   })();
 }
