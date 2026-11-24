@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient as createSupabase, type SupabaseClient } from '@supabase/supabase-js';
 import { ctToday, ctLocalToIso } from '@/lib/time';
 import { DAILY_EMAIL_LINE, EDITABLE_STATUSES, PRIORITIES, UPDATE_PEOPLE, UPDATE_STATUSES } from '@/lib/constants';
+import { rollupFiles } from '@/lib/csv';
+import { upsertSalesDays } from '@/lib/salesStore';
 
 /**
  * Oasis Command Center connector for Claude (Model Context Protocol, Streamable HTTP, JSON responses).
@@ -228,6 +230,25 @@ const TOOLS: Tool[] = [
       ) as { id: string };
       must(await d.from('task_requests').update({ status: 'accepted', task_id: task.id }).eq('id', str(a.id)));
       return { task_id: task.id };
+    },
+  },
+  {
+    name: 'import_jwo_report',
+    description:
+      'Import Amazon Just Walk Out (Western Supply) daily reports. Pass the full text of the daily Sales CSV and, if available, the Refund CSV for the same day, exactly as downloaded from the JWO portal. Totals are before tax; refunds are subtracted. Returns the saved daily totals.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sales_csv: { type: 'string', description: 'Full CSV text of the Sales report' },
+        refund_csv: { type: 'string', description: 'Full CSV text of the Refund report (optional)' },
+      },
+      required: ['sales_csv'],
+    },
+    run: async (d, a) => {
+      const texts = [str(a.sales_csv), str(a.refund_csv)].filter(Boolean);
+      const { days, skipped, rows } = rollupFiles(texts);
+      const saved = await upsertSalesDays(d, 'jwo', days, 'jwo-agent');
+      return { lines_read: rows, lines_skipped: skipped, saved };
     },
   },
   {
