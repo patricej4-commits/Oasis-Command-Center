@@ -1,4 +1,4 @@
-import { ctLocalToIso, ctToday } from '@/lib/time';
+﻿import { ctLocalToIso, ctToday } from '@/lib/time';
 import { ctHour } from '@/lib/sales';
 
 /** Minimal CSV parser that handles quoted fields, commas and new lines inside quotes. */
@@ -7,7 +7,7 @@ export function parseCsv(text: string): string[][] {
   let row: string[] = [];
   let field = '';
   let q = false;
-  const s = text.replace(/^﻿/, '');
+  const s = text.replace(/^ï»¿/, '');
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
     if (q) {
@@ -72,7 +72,24 @@ function toDate(v: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-export type DayRollup = { sale_date: string; total_cents: number; orders: number; items: Record<string, number>; hours: Record<string, number> };
+export type DayRollup = {
+  sale_date: string;
+  total_cents: number;
+  orders: number;
+  units: number;
+  items: Record<string, number>;        // units sold per item
+  item_revenue: Record<string, number>; // cents per item
+  hours: Record<string, number>;        // orders per hour (Central)
+  hour_revenue: Record<string, number>; // cents per hour (Central)
+};
+
+export function emptyDay(sale_date: string): DayRollup {
+  return { sale_date, total_cents: 0, orders: 0, units: 0, items: {}, item_revenue: {}, hours: {}, hour_revenue: {} };
+}
+
+function add(rec: Record<string, number>, key: string, n: number) {
+  rec[key] = (rec[key] || 0) + n;
+}
 
 /** Parses several report files (for example the JWO Sales and Refund files) and combines them by day. */
 export function rollupFiles(texts: string[]): { days: DayRollup[]; skipped: number; rows: number } {
@@ -88,46 +105,57 @@ export function rollupFiles(texts: string[]): { days: DayRollup[]; skipped: numb
     const r = rollup(parsed.slice(1), cols);
     skipped += r.skipped;
     for (const d of r.days) {
-      const m = merged.get(d.sale_date) ?? { sale_date: d.sale_date, total_cents: 0, orders: 0, items: {}, hours: {} };
+      const m = merged.get(d.sale_date) ?? emptyDay(d.sale_date);
       m.total_cents += d.total_cents;
       m.orders += d.orders;
-      for (const [k, v] of Object.entries(d.items)) m.items[k] = (m.items[k] || 0) + v;
-      for (const [k, v] of Object.entries(d.hours)) m.hours[k] = (m.hours[k] || 0) + v;
+      m.units += d.units;
+      for (const [k, v] of Object.entries(d.items)) add(m.items, k, v);
+      for (const [k, v] of Object.entries(d.item_revenue)) add(m.item_revenue, k, v);
+      for (const [k, v] of Object.entries(d.hours)) add(m.hours, k, v);
+      for (const [k, v] of Object.entries(d.hour_revenue)) add(m.hour_revenue, k, v);
       merged.set(d.sale_date, m);
     }
   }
   return { days: Array.from(merged.values()), skipped, rows };
 }
 
-/** Rolls report lines up into daily totals (Central Time). */
+/** Rolls report lines up into daily totals (Central Time). Refund lines are subtracted. */
 export function rollup(rows: string[][], cols: ColumnGuess): { days: DayRollup[]; skipped: number } {
-  const days = new Map<string, DayRollup & { orderIds: Set<string>; orderHour: Map<string, number> }>();
+  const days = new Map<string, DayRollup & { orderIds: Set<string> }>();
   let skipped = 0;
   rows.forEach((r, idx) => {
     const when = cols.date >= 0 ? toDate(r[cols.date] ?? '') : null;
     if (!when) { skipped++; return; }
     const date = ctToday(when);
-    const d = days.get(date) ?? { sale_date: date, total_cents: 0, orders: 0, items: {}, hours: {}, orderIds: new Set(), orderHour: new Map() };
+    const d = days.get(date) ?? { ...emptyDay(date), orderIds: new Set<string>() };
     const id = cols.order >= 0 ? (r[cols.order] || `row${idx}`) : `row${idx}`;
     const isRefund = cols.type >= 0 && /refund|return/i.test(r[cols.type] ?? '');
-    if (cols.amount >= 0) {
-      const cents = Math.abs(toCents(r[cols.amount] ?? ''));
-      d.total_cents += isRefund ? -cents : cents;
+    const cents = cols.amount >= 0 ? Math.abs(toCents(r[cols.amount] ?? '')) : 0;
+    const name = cols.item >= 0 ? (r[cols.item] || '').trim() : '';
+    const qty = cols.qty >= 0 ? Math.abs(Number(r[cols.qty]) || 1) : 1;
+    const hour = String(ctHour(when));
+
+    if (isRefund) {
+      d.total_cents -= cents;
+      if (name) add(d.item_revenue, name, -cents);
+      days.set(date, d);
+      return; // refunds reduce sales but are not new orders
     }
-    if (isRefund) { days.set(date, d); return; } // refunds reduce sales but are not new orders
+    d.total_cents += cents;
+    d.units += qty;
+    add(d.hour_revenue, hour, cents);
     if (!d.orderIds.has(id)) {
       d.orderIds.add(id);
-      const h = String(ctHour(when));
-      d.hours[h] = (d.hours[h] || 0) + 1;
+      add(d.hours, hour, 1);
     }
-    if (cols.item >= 0) {
-      const name = (r[cols.item] || '').trim();
-      if (name) d.items[name] = (d.items[name] || 0) + (cols.qty >= 0 ? Number(r[cols.qty]) || 1 : 1);
+    if (name) {
+      add(d.items, name, qty);
+      add(d.item_revenue, name, cents);
     }
     days.set(date, d);
   });
   return {
-    days: Array.from(days.values()).map(({ orderIds, orderHour: _o, ...d }) => ({ ...d, orders: orderIds.size })),
+    days: Array.from(days.values()).map(({ orderIds, ...d }) => ({ ...d, orders: orderIds.size })),
     skipped,
   };
 }
