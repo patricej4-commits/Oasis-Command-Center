@@ -10,22 +10,23 @@ export const dynamic = 'force-dynamic';
 export default async function PatriceLayout({ children }: { children: React.ReactNode }) {
   await requireMe('patrice');
   const supabase = createClient();
-  const [{ count: newReqs }, { count: unseen }, { count: waiting }] = await Promise.all([
+  const [{ count: newReqs }, { count: unseen }, { count: waiting }, { count: todoUnseen }] = await Promise.all([
     supabase.from('task_requests').select('id', { count: 'exact', head: true }).eq('status', 'new'),
     supabase.from('decisions').select('id', { count: 'exact', head: true }).eq('seen_by_patrice', false),
     supabase.from('decisions').select('id', { count: 'exact', head: true }).eq('status', 'waiting'),
+    supabase.from('aj_todos').select('id', { count: 'exact', head: true }).eq('seen_by_patrice', false),
   ]);
 
   return (
     <div className="min-h-screen">
-      <RealtimeRefresh tables={['task_requests', 'decisions', 'decision_replies', 'meetings']} />
+      <RealtimeRefresh tables={['task_requests', 'decisions', 'decision_replies', 'meetings', 'aj_todos']} />
       <header className="sticky top-0 z-30 bg-oasis text-white shadow">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <Link href="/patrice" className="flex items-center gap-3 leading-tight">
             <img src="/logo.png" alt="Oasis Fresh Market" className="h-10 w-auto" />
             <span className="hidden text-lg font-extrabold sm:block">Command Center</span>
           </Link>
-          <NavLinks badges={{ inbox: (newReqs ?? 0) + (unseen ?? 0), decisions: waiting ?? 0 }} />
+          <NavLinks badges={{ inbox: (newReqs ?? 0) + (unseen ?? 0) + (todoUnseen ?? 0), decisions: waiting ?? 0 }} />
           <div className="ml-auto flex items-center gap-4">
             <Clocks />
             <Link href="/aj" className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-bold hover:bg-white/25">AJ view</Link>

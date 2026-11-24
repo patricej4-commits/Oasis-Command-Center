@@ -4,15 +4,18 @@ import { loadAttachments } from '@/lib/files';
 import { fmtDate, fmtDateTime } from '@/lib/time';
 import { DECISION_STATUS_CLASS, PRIORITY_CLASS } from '@/lib/constants';
 import AttachmentList, { LinkChips } from '@/components/AttachmentList';
-import { RequestButtons, SeenButton } from './InboxButtons';
+import { RequestButtons, SeenButton, TodosSeenButton } from './InboxButtons';
+import type { AjTodo } from '@/app/aj/AjTodos';
 import type { Decision, DecisionReply, TaskRequest } from '@/lib/types';
 
 export default async function Inbox() {
   const supabase = createClient();
-  const [reqRes, unseenRes] = await Promise.all([
+  const [reqRes, unseenRes, todoRes] = await Promise.all([
     supabase.from('task_requests').select('*').order('created_at', { ascending: false }).limit(40),
     supabase.from('decisions').select('*').eq('seen_by_patrice', false).order('decided_at', { ascending: false }),
+    supabase.from('aj_todos').select('*').eq('seen_by_patrice', false).order('done_at', { ascending: false }),
   ]);
+  const todoUpdates = (todoRes.data ?? []) as AjTodo[];
   const requests = (reqRes.data ?? []) as TaskRequest[];
   const unseen = (unseenRes.data ?? []) as Decision[];
   const fresh = requests.filter((r) => r.status === 'new');
@@ -73,7 +76,24 @@ export default async function Inbox() {
           <h2 className="text-lg font-extrabold">AJ responded</h2>
           {unseen.length > 1 && <SeenButton id="all" label="Mark all seen" />}
         </div>
-        {unseen.length === 0 && <p className="card p-4 text-sm text-slate-500">No new responses from AJ.</p>}
+        {unseen.length === 0 && todoUpdates.length === 0 && <p className="card p-4 text-sm text-slate-500">No new responses from AJ.</p>}
+        {todoUpdates.length > 0 && (
+          <div className="card border-l-8 border-indigo-600 p-4">
+            <p className="text-xs font-black uppercase text-indigo-700">AJ's tasks</p>
+            <ul className="mt-1 space-y-1.5 text-sm">
+              {todoUpdates.map((t) => (
+                <li key={t.id}>
+                  <span className={`pill mr-1 ${t.status === 'done' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'}`}>
+                    {t.status === 'done' ? 'Done' : 'Comment'}
+                  </span>
+                  <b>{t.title}</b>
+                  {t.aj_comment && <span className="block text-slate-700">AJ: {t.aj_comment}</span>}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2"><TodosSeenButton /></div>
+          </div>
+        )}
         {unseen.map((d) => (
           <div key={d.id} className="card border-l-8 border-red-500 p-4">
             <div className="flex items-center gap-2">

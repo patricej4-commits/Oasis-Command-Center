@@ -2,7 +2,16 @@
 
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { acceptRequest, dismissRequest, markDecisionSeen } from '@/app/actions';
+import { acceptRequest, dismissRequest, markAjTodosSeen, markDecisionSeen } from '@/app/actions';
+
+export function TodosSeenButton() {
+  const [pending, start] = useTransition();
+  return (
+    <button disabled={pending} className="btn-primary" onClick={() => start(async () => { await markAjTodosSeen(); })}>
+      Got it
+    </button>
+  );
+}
 
 export function RequestButtons({ id }: { id: string }) {
   const [pending, start] = useTransition();
